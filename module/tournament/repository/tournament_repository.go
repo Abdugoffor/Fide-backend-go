@@ -74,10 +74,9 @@ func (repository *tournamentRepository) List(ctx context.Context, filter *tourna
 	`, condition, order)
 
 	rows, err := repository.db.Query(ctx, query, filter.Cursor, filter.Name, filter.Status, filter.Description, filter.Limit+1)
-	{
-		if err != nil {
-			return nil, err
-		}
+
+	if err != nil {
+		return nil, err
 	}
 
 	defer rows.Close()
@@ -133,10 +132,9 @@ func (repository *tournamentRepository) HasMore(ctx context.Context, filter *tou
 	var exists bool
 
 	err := repository.db.QueryRow(ctx, query, cursor, filter.Name, filter.Status, filter.Description).Scan(&exists)
-	{
-		if err != nil {
-			return false, err
-		}
+
+	if err != nil {
+		return false, err
 	}
 
 	return exists, nil
@@ -196,10 +194,9 @@ func (repository *tournamentRepository) Update(ctx context.Context, id int64, re
 
 func (repository *tournamentRepository) Delete(ctx context.Context, id int64) error {
 	result, err := repository.db.Exec(ctx, "DELETE FROM tournaments WHERE id = $1", id)
-	{
-		if err != nil {
-			return err
-		}
+
+	if err != nil {
+		return err
 	}
 
 	if result.RowsAffected() == 0 {

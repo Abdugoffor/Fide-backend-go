@@ -39,10 +39,9 @@ func (repository *authRepository) SeedSuperadmin(ctx context.Context, passwordHa
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (email) DO NOTHING
 	`, "Superadmin", "admin@gmail.com", passwordHash, auth_dto.RoleSuperadmin, auth_dto.StatusActive)
-	{
-		if err != nil {
-			return err
-		}
+
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -65,10 +64,9 @@ func (repository *authRepository) FindByEmail(ctx context.Context, email string)
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-	{
-		if err != nil {
-			return nil, err
-		}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &user, nil
@@ -79,10 +77,9 @@ func (repository *authRepository) CreateSession(ctx context.Context, userID int6
 		INSERT INTO user_sessions(token_hash, user_id, expires_at)
 		SELECT $1, id, $2 FROM users WHERE id = $3 AND status = $4
 	`, tokenHash, expiresAt, userID, auth_dto.StatusActive)
-	{
-		if err != nil {
-			return err
-		}
+
+	if err != nil {
+		return err
 	}
 
 	if result.RowsAffected() == 0 {
@@ -109,10 +106,9 @@ func (repository *authRepository) FindBySession(ctx context.Context, userID int6
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-	{
-		if err != nil {
-			return nil, err
-		}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &user, nil
@@ -122,10 +118,9 @@ func (repository *authRepository) DeleteSession(ctx context.Context, userID int6
 	result, err := repository.db.Exec(ctx, `
 		DELETE FROM user_sessions WHERE token_hash = $1 AND user_id = $2 AND expires_at > NOW()
 	`, tokenHash, userID)
-	{
-		if err != nil {
-			return err
-		}
+
+	if err != nil {
+		return err
 	}
 
 	if result.RowsAffected() == 0 {
