@@ -12,6 +12,8 @@ import (
 	"auth-login/helper"
 	auth_cmd "auth-login/module/auth"
 	category_cmd "auth-login/module/category"
+	field_cmd "auth-login/module/field"
+	page_cmd "auth-login/module/page"
 	tournament_cmd "auth-login/module/tournament"
 
 	"github.com/julienschmidt/httprouter"
@@ -68,6 +70,8 @@ func run() error {
 		auth_cmd.Cmd(router, "/api", db)
 		tournament_cmd.Cmd(router, "/api", db)
 		category_cmd.Cmd(router, "/api", db)
+		page_cmd.Cmd(router, "/api", db)
+		field_cmd.Cmd(router, "/api", db)
 	}
 
 	server := &http.Server{

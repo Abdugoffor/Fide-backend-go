@@ -20,26 +20,19 @@ var (
 	ErrInvalidToken       = errors.New("invalid or expired token")
 )
 
-type AuthService interface {
-	SeedSuperadmin(ctx context.Context) error
-	Login(ctx context.Context, req *auth_dto.Login) (*auth_dto.LoginResponse, error)
-	Authenticate(ctx context.Context, token string) (*auth_dto.Response, error)
-	Logout(ctx context.Context, token string) error
-}
-
-type authService struct {
+type AuthService struct {
 	repository auth_repository.AuthRepository
 	secret     string
 }
 
-func NewAuthService(db *pgxpool.Pool, secret string) AuthService {
-	return &authService{
+func NewAuthService(db *pgxpool.Pool, secret string) *AuthService {
+	return &AuthService{
 		repository: auth_repository.NewAuthRepository(db),
 		secret:     secret,
 	}
 }
 
-func (service *authService) SeedSuperadmin(ctx context.Context) error {
+func (service *AuthService) SeedSuperadmin(ctx context.Context) error {
 	passwordHash, err := helper.HashPassword("123456798")
 	{
 		if err != nil {
@@ -50,7 +43,7 @@ func (service *authService) SeedSuperadmin(ctx context.Context) error {
 	return service.repository.SeedSuperadmin(ctx, passwordHash)
 }
 
-func (service *authService) Login(ctx context.Context, req *auth_dto.Login) (*auth_dto.LoginResponse, error) {
+func (service *AuthService) Login(ctx context.Context, req *auth_dto.Login) (*auth_dto.LoginResponse, error) {
 	user, err := service.repository.FindByEmail(ctx, req.Email)
 	{
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -103,7 +96,7 @@ func (service *authService) Login(ctx context.Context, req *auth_dto.Login) (*au
 	}, nil
 }
 
-func (service *authService) Authenticate(ctx context.Context, token string) (*auth_dto.Response, error) {
+func (service *AuthService) Authenticate(ctx context.Context, token string) (*auth_dto.Response, error) {
 	userID, err := service.tokenUserID(token)
 	{
 		if err != nil {
@@ -129,7 +122,7 @@ func (service *authService) Authenticate(ctx context.Context, token string) (*au
 	return user, nil
 }
 
-func (service *authService) Logout(ctx context.Context, token string) error {
+func (service *AuthService) Logout(ctx context.Context, token string) error {
 	userID, err := service.tokenUserID(token)
 	{
 		if err != nil {
@@ -151,7 +144,7 @@ func (service *authService) Logout(ctx context.Context, token string) error {
 	return nil
 }
 
-func (service *authService) tokenUserID(token string) (int64, error) {
+func (service *AuthService) tokenUserID(token string) (int64, error) {
 	if len(token) > 4096 {
 		return 0, ErrInvalidToken
 	}

@@ -21,7 +21,7 @@ import (
 )
 
 type tournamentHandler struct {
-	service tournament_service.TournamentService
+	service *tournament_service.TournamentService
 }
 
 func NewTournamentHandler(router *httprouter.Router, group string, db *pgxpool.Pool) {
@@ -234,6 +234,11 @@ func writeServiceError(w http.ResponseWriter, err error) {
 
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "categories_tournament_fk" {
 		helper.JSON(w, http.StatusConflict, map[string]string{"error": "tournament has categories"})
+		return
+	}
+
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "pages_tournament_fk" {
+		helper.JSON(w, http.StatusConflict, map[string]string{"error": "tournament has pages"})
 		return
 	}
 

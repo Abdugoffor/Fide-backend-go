@@ -15,7 +15,7 @@ import (
 )
 
 type authHandler struct {
-	service auth_service.AuthService
+	service *auth_service.AuthService
 }
 
 func NewAuthHandler(router *httprouter.Router, group string, db *pgxpool.Pool) {
@@ -125,7 +125,7 @@ func parseToken(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return parts[1], true
 }
 
-func RequireAuth(service auth_service.AuthService, next httprouter.Handle, roles ...string) httprouter.Handle {
+func RequireAuth(service *auth_service.AuthService, next httprouter.Handle, roles ...string) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 		token, ok := parseToken(w, r)
 		{

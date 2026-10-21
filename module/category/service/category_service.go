@@ -23,30 +23,22 @@ var (
 	ErrParentCycle        = errors.New("parent category must not be itself or a descendant")
 	ErrHierarchyConflict  = errors.New("category has child categories or its parent is no longer available")
 	ErrConcurrentChange   = errors.New("category hierarchy changed concurrently; retry the request")
+	ErrPageConflict       = errors.New("category has pages; remove or move its pages first")
 )
 
-type CategoryService interface {
-	Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error)
-	List(ctx context.Context, filter *category_dto.Filter) (*category_dto.ListResponse, error)
-	WithChildren(ctx context.Context, tournamentID int64) (*category_dto.WithChildrenListResponse, error)
-	Show(ctx context.Context, id int64) (*category_dto.Response, error)
-	Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error)
-	Delete(ctx context.Context, id int64) error
-}
-
-type categoryService struct {
+type CategoryService struct {
 	repository category_repository.CategoryRepository
-	tournament tournament_service.TournamentService
+	tournament *tournament_service.TournamentService
 }
 
-func NewCategoryService(db *pgxpool.Pool) CategoryService {
-	return &categoryService{
+func NewCategoryService(db *pgxpool.Pool) *CategoryService {
+	return &CategoryService{
 		repository: category_repository.NewCategoryRepository(db),
 		tournament: tournament_service.NewTournamentService(db),
 	}
 }
 
-func (service *categoryService) Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error) {
+func (service *CategoryService) Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error) {
 
 	if err := validateBody(req); err != nil {
 		return nil, err
@@ -61,14 +53,16 @@ func (service *categoryService) Create(ctx context.Context, req *category_dto.Cr
 	}
 
 	res, err := service.repository.Create(ctx, req)
-	if err != nil {
-		return nil, serviceError(err)
+	{
+		if err != nil {
+			return nil, serviceError(err)
+		}
 	}
 
 	return res, nil
 }
 
-func (service *categoryService) List(ctx context.Context, filter *category_dto.Filter) (*category_dto.ListResponse, error) {
+func (service *CategoryService) List(ctx context.Context, filter *category_dto.Filter) (*category_dto.ListResponse, error) {
 	if filter.Limit < 1 || filter.Limit > 100 {
 		filter.Limit = 10
 	}
@@ -93,7 +87,7 @@ func (service *categoryService) List(ctx context.Context, filter *category_dto.F
 	return res, nil
 }
 
-func (service *categoryService) WithChildren(ctx context.Context, tournamentID int64) (*category_dto.WithChildrenListResponse, error) {
+func (service *CategoryService) WithChildren(ctx context.Context, tournamentID int64) (*category_dto.WithChildrenListResponse, error) {
 
 	if err := service.validateTournament(ctx, tournamentID); err != nil {
 		return nil, err
@@ -109,11 +103,11 @@ func (service *categoryService) WithChildren(ctx context.Context, tournamentID i
 	return &category_dto.WithChildrenListResponse{Data: rows}, nil
 }
 
-func (service *categoryService) Show(ctx context.Context, id int64) (*category_dto.Response, error) {
+func (service *CategoryService) Show(ctx context.Context, id int64) (*category_dto.Response, error) {
 	return service.repository.Show(ctx, id)
 }
 
-func (service *categoryService) Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error) {
+func (service *CategoryService) Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error) {
 
 	if err := validateBody((*category_dto.Create)(req)); err != nil {
 		return nil, err
@@ -144,11 +138,11 @@ func (service *categoryService) Update(ctx context.Context, id int64, req *categ
 	return res, nil
 }
 
-func (service *categoryService) Delete(ctx context.Context, id int64) error {
+func (service *CategoryService) Delete(ctx context.Context, id int64) error {
 	return serviceError(service.repository.Delete(ctx, id))
 }
 
-func (service *categoryService) validateTournament(ctx context.Context, tournamentID int64) error {
+func (service *CategoryService) validateTournament(ctx context.Context, tournamentID int64) error {
 	_, err := service.tournament.Show(ctx, tournamentID)
 	{
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -163,7 +157,7 @@ func (service *categoryService) validateTournament(ctx context.Context, tourname
 	return nil
 }
 
-func (service *categoryService) validateParent(ctx context.Context, id, tournamentID int64, parentID *int64) error {
+func (service *CategoryService) validateParent(ctx context.Context, id, tournamentID int64, parentID *int64) error {
 	visited := make(map[int64]bool)
 
 	for parentID != nil {
@@ -222,6 +216,8 @@ func serviceError(err error) error {
 				return ErrTournamentNotFound
 			case "categories_parent_tournament_fk":
 				return ErrHierarchyConflict
+			case "pages_category_tournament_fk":
+				return ErrPageConflict
 			}
 		}
 	}

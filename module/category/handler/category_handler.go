@@ -20,7 +20,7 @@ import (
 )
 
 type categoryHandler struct {
-	service category_service.CategoryService
+	service *category_service.CategoryService
 }
 
 func NewCategoryHandler(router *httprouter.Router, group string, db *pgxpool.Pool) {
@@ -267,7 +267,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 			return
 		}
 
-		if errors.Is(err, category_service.ErrHierarchyConflict) || errors.Is(err, category_service.ErrConcurrentChange) {
+		if errors.Is(err, category_service.ErrHierarchyConflict) || errors.Is(err, category_service.ErrConcurrentChange) || errors.Is(err, category_service.ErrPageConflict) {
 			helper.JSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 			return
 		}

@@ -48,6 +48,20 @@ module/
     handler/category_handler.go
     service/category_service.go
     repository/category_repository.go
+  page/
+    cmd.go
+    dto/req_dto.go
+    dto/res_dto.go
+    handler/page_handler.go
+    service/page_service.go
+    repository/page_repository.go
+  field/
+    cmd.go
+    dto/req_dto.go
+    dto/res_dto.go
+    handler/field_handler.go
+    service/field_service.go
+    repository/field_repository.go
 ```
 
 Ishga tushish ketma-ketligi: `helper.LoadEnv -> config.Load -> config.DBConnect -> config.RunMigrations -> config.SeedSuperadmin -> modullarni routerga ulash -> HTTP server`.
@@ -81,11 +95,11 @@ Yozishdan oldin:
 3. Semantikasi mos bo'lsa, uni chaqiring. Mos bo'lmasa, mavjud APIga zarar bermaydigan kengaytirish yoki haqiqatan alohida funksiya kerakligini aniqlang.
 4. Yangi metod zarur bo'lsa, tegishli interface va implementatsiyani birga yangilang.
 
-Biznes tekshiruvlari bor imkoniyatni qayta ishlatishda boshqa modulning service interface'ini chaqiring. Masalan, autentifikatsiya uchun `AuthService.Authenticate`dan foydalaning; token va sessiya tekshiruvlarini boshqa modulda qayta yozmang.
+Biznes tekshiruvlari bor imkoniyatni qayta ishlatishda boshqa modulning mavjud service metodini chaqiring. Masalan, autentifikatsiya uchun `AuthService.Authenticate`dan foydalaning; token va sessiya tekshiruvlarini boshqa modulda qayta yozmang. Servicelar konkret struct sifatida ishlatiladi; ular uchun interface yaratmang.
 
 Faqat ma'lumotga oid tayyor imkoniyat kerak bo'lsa va biznes tekshiruvlari chetlab o'tilmasa, service boshqa modulning repository interface'idan ham foydalanishi mumkin. Handler repositoryga bevosita chiqmaydi. Repositorylar orasida biznes jarayonini zanjirlamang; buni service boshqaradi. Aylanma importga yo'l qo'ymang.
 
-Bog'liqlikni struct maydonida interface orqali saqlang, konstruktorda ulang. Mavjud konstruktor uslubini saqlang; yangi service yoki repositoryni har bir request ichida qayta yaratmang.
+Repository bog'liqligini struct maydonida interface orqali, service bog'liqligini esa konkret struct pointeri orqali saqlang va konstruktorda ulang. Mavjud konstruktor uslubini saqlang; yangi service yoki repositoryni har bir request ichida qayta yaratmang.
 
 Quyidagilar hozir mavjud; ularning kodini qayta yozishdan oldin tekshiring:
 
@@ -111,10 +125,10 @@ Kichik harf bilan boshlangan funksiyalar faqat o'z package'ida ochiq. Ularni bos
 ## Nomlash va konstruktorlar
 
 - Package/import aliaslar: `auth_dto`, `auth_handler`, `auth_service`, `auth_repository`, `tournament_dto` kabi `<module>_<layer>` uslubi.
-- Interfacelar eksport qilinadi: `TournamentService`, `TournamentRepository`. Implementatsiyalar yopiq: `tournamentService`, `tournamentRepository`, `tournamentHandler`.
+- Service structlari eksport qilinadi: `TournamentService`, `AuthService`, `CategoryService`, `PageService`, `FieldService`. Service interfacelari ishlatilmaydi. Repository interfacelari eksport qilinadi: `TournamentRepository`; ularning implementatsiyalari va handlerlar yopiq: `tournamentRepository`, `tournamentHandler`.
 - Receiver nomlari: `handler`, `service`, `repository`.
-- Konstruktorlar: `NewTournamentHandler(router, group, db)`, `NewTournamentService(db) TournamentService`, `NewTournamentRepository(db) TournamentRepository`.
-- Handler o'z service interface'ini, service repository interface'ini, repository `*pgxpool.Pool`ni saqlaydi.
+- Konstruktorlar: `NewTournamentHandler(router, group, db)`, `NewTournamentService(db) *TournamentService`, `NewTournamentRepository(db) TournamentRepository`.
+- Handler o'z konkret service pointerini, service repository interface'ini, repository `*pgxpool.Pool`ni saqlaydi. Boshqa service kerak bo'lsa, u ham konkret pointer orqali ulanadi.
 - Mavjud CRUD nomlari: `Create`, `List`, `Show`, `Update`, `Delete`. Boshqa amallarga maqsadini tushuntiradigan nom bering; ularni sun'iy ravishda CRUD nomlariga aylantirmang.
 - Mavjud role/status/direction konstantalarini qayta ishlating; bir xil qiymat uchun turli joylarda yangi konstantalar yaratmang.
 
@@ -171,12 +185,48 @@ Xato yoki noto'g'ri holatda erta `return` qiling. Mantiqiy bosqichlarni bo'sh qa
 - `Query`dan keyin `defer rows.Close()`, iteratsiyadan keyin `rows.Err()` tekshiruvini saqlang. `Exec`da yozuv topilmaganini aniqlash kerak bo'lsa, `RowsAffected()`ni tekshiring.
 - Bir nechta yozuvni atomar o'zgartirish zarur bo'lsa, jarayonni service boshqarsin, SQL esa repositoryda qolsin; tegishli operatsiyalar bir tranzaksiyada bajarilsin.
 - Schema o'zgarishini `config/migrations/` ichidagi keyingi raqamli SQL faylida yozing. Migratsiyalarni qo'llaydigan mavjud mexanizmni qayta ishlating.
+- Har bir yangi jadval uchun alohida migratsiya yozing. Foreign keylarda bog'liq yozuvlarni avtomatik o'chirishni ishlatmang; oldin bog'liq yozuvlar alohida o'chirilishi yoki ko'chirilishi kerak.
 
 Tournament ro'yxati cursor asosida ishlaydi: repository `Limit+1` yozuv oladi, service ortiqcha yozuvni ajratadi, `prev` natijasini teskari aylantiradi va `HasMore` orqali qarama-qarshi yo'nalishni tekshiradi. Shu imkoniyatni qayta yozishdan oldin `List` va `HasMore`ni o'qing. Hozir HTTPda standart limit `10`, serviceda yaroqsiz limit uchun fallback `20`; mavjud farqni vazifasiz o'zgartirmang.
 
 Category API `/api/categories`da. `parent_id: null` bosh kategoriyani bildiradi; parent shu turnirga tegishli bo'lishi va sikl yaratmasligi kerak. Service parentlarni repositoryning `Show` metodi orqali tekshiradi, so'ng `Create` yoki `Update`ni chaqiradi. `tournament_id` FK va `(parent_id, tournament_id)` kompozit FK bog'lanishlarni bazada ham himoya qiladi. Ichki kategoriyasi bor kategoriyani o'chirish yoki boshqa turnirga ko'chirish `409`; kategoriyalari bor turnirni o'chirish ham `409`. Category ro'yxatida oldinga cursor pagination va `tournament_id`, `parent_id`, `name`, `is_active` filterlari bor. `parent_id` yuborilmasa yoki `parent_id=0` bo'lsa, faqat `parent_id IS NULL` bosh kategoriyalar qaytadi; musbat ID yuborilsa, shu parentning ichki kategoriyalari qaytadi.
 
 `GET /api/categories_with_childr?tournament_id=1` turnirning kategoriyalar daraxtini qaytaradigan alohida API. Category modulining route blokida `WithChildren` handleriga to'g'ridan-to'g'ri ulangan. `Show` faqat `/api/categories/:id` uchun ishlaydi. `tournament_id` majburiy musbat ID; mavjud bo'lmagan turnir `404`, kategoriya yo'q bo'lsa `{"data":[]}`. Service faqat mavjud turnirni tekshirib, repository natijasini qaytaradi; daraxt yig'uvchi `for`, map yoki `json.Marshal` serviceda bo'lmasin. Repository `WithChildren` SQL orqali shu turnirdagi `parent_id IS NULL` kategoriyalarni oladi. `004_create_category_children_function.sql` migratsiyasidagi rekursiv `category_children_json` funksiyasi ularning barcha darajadagi bolalarini SQLda ichma-ich JSON massivga yig'adi. Root va bolalar ID bo'yicha kamayish tartibida. `WithChildrenResponse.Children` turi `json.RawMessage`; repository SQLdan tayyor JSONni shu maydonga `Scan` qiladi. Bolasi yo'q kategoriyada `children: []`. Pagination va faol holat filtri qo'llanmaydi. Mavjud auth tekshiruvi saqlanadi.
+
+## Page va Field APIlari
+
+`module/page` va `module/field` ham `handler -> service -> repository` qatlamlarida.
+CRUD manzillari `/api/pages` va `/api/fields`; yozish amallari admin/superadmin,
+o'qish amallari mavjud `RequireAuth` orqali himoyalangan. Page service
+`TournamentService.Show` va `CategoryService.Show`, Field service esa
+`PageService.Show`ni qayta ishlatadi. Service bog'liqliklari konkret struct
+pointerlari, repository bog'liqliklari interfacelar orqali konstruktorlarda ulanadi.
+
+`GET /api/pages-form?tournament_id=1&category_id=2` Page route blokida alohida
+`Form` handleriga to'g'ridan-to'g'ri ulangan. Service dastlabki ikki doimiy
+bosqichni (`contact`, `email_verification`) qo'shadi; repository faol dinamik
+sahifa va maydonlarni SQLda yig'adi. Doimiy bosqichlarda va ularning maydonlarida
+`id: null`; ular CRUD orqali o'zgarmaydi. Dinamik sahifalar `sort >= 3`, maydonlar
+`sort >= 1`. Tartiblar kategoriya/sahifa ichida takrorlanmaydi. Sahifalar
+kategoriyaga bevosita tegishli, ota kategoriyadan meros olinmaydi.
+
+Page/Field `List` pagination ishlatmaydi va `sort` bo'yicha tartiblanadi. Page
+filterlari `tournament_id`, `category_id`, `name`, `is_active`; Field filterlari
+`page_id`, `name`, `type`, `is_active`. Field `options` turi `[]string`,
+`validation` turi `field_dto.Validation`. Tanlovlar va validatsiya chegaralari
+serviceda tekshiriladi. `FormPage.Fields` turi `[]field_dto.FormField`; pgx SQLdan
+kelgan JSONni shu turga o'qiydi. Dinamik sahifasiz kategoriyada ham doimiy ikki
+bosqich qaytadi. Faol bo'lmagan kategoriya formasi `409`.
+
+`005_create_pages.sql` sahifalarni va kategoriya bilan turnir o'rtasidagi
+kompozit FKni, `006_create_fields.sql` maydonlarni yaratadi.
+`007_update_foreign_keys.sql` oldin yaratilgan `user_sessions` va `fields`
+bog'lanishlarini avtomatik o'chirishsiz FKga almashtiradi. Maydonlari bor
+sahifani o'chirish `409`; oldin maydonlari o'chirilishi yoki ko'chirilishi kerak.
+Sahifalari bor kategoriyani o'chirish/boshqa turnirga ko'chirish
+va sahifalari bor turnirni o'chirish `409`. Email yuborish, kodni tasdiqlash va
+ariza javoblarini saqlash bu modullarga kirmaydi. To'liq API misollari
+`docs/pages-and-fields.md`da.
 
 ## O'zgartirishni yakunlash
 
