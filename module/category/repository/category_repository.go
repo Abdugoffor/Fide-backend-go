@@ -6,12 +6,10 @@ import (
 	category_dto "auth-login/module/category/dto"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type CategoryRepository interface {
-	WithTransaction(ctx context.Context, fn func(CategoryRepository) error) error
 	Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error)
 	List(ctx context.Context, filter *category_dto.Filter) ([]category_dto.Response, error)
 	WithChildren(ctx context.Context, tournamentID int64) ([]*category_dto.WithChildrenResponse, error)
@@ -20,45 +18,18 @@ type CategoryRepository interface {
 	Delete(ctx context.Context, id int64) error
 }
 
-type queryer interface {
-	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-	QueryRow(context.Context, string, ...any) pgx.Row
-}
-
 type categoryRepository struct {
-	db      *pgxpool.Pool
-	queries queryer
+	db *pgxpool.Pool
 }
 
 func NewCategoryRepository(db *pgxpool.Pool) CategoryRepository {
-	return &categoryRepository{db: db, queries: db}
-}
-
-func (repository *categoryRepository) WithTransaction(ctx context.Context, fn func(CategoryRepository) error) error {
-	// Ancestor reads and the write share a serializable snapshot so concurrent
-	// reparenting cannot create a cycle after the service has validated the tree.
-	tx, err := repository.db.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
-
-	if err != nil {
-		return err
-	}
-
-	defer tx.Rollback(context.Background())
-
-	scoped := &categoryRepository{db: repository.db, queries: tx}
-
-	if err := fn(scoped); err != nil {
-		return err
-	}
-
-	return tx.Commit(ctx)
+	return &categoryRepository{db: db}
 }
 
 func (repository *categoryRepository) Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error) {
 	var res category_dto.Response
 
-	err := repository.queries.QueryRow(ctx, `
+	err := repository.db.QueryRow(ctx, `
 		INSERT INTO categories(tournament_id, parent_id, name, is_active)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id, tournament_id, parent_id, name, is_active, created_at, updated_at
@@ -80,7 +51,7 @@ func (repository *categoryRepository) Create(ctx context.Context, req *category_
 }
 
 func (repository *categoryRepository) List(ctx context.Context, filter *category_dto.Filter) ([]category_dto.Response, error) {
-	rows, err := repository.queries.Query(ctx, `
+	rows, err := repository.db.Query(ctx, `
 		SELECT id, tournament_id, parent_id, name, is_active, created_at, updated_at
 		FROM categories
 		WHERE ($1::BIGINT = 0 OR id < $1)
@@ -128,7 +99,7 @@ func (repository *categoryRepository) List(ctx context.Context, filter *category
 }
 
 func (repository *categoryRepository) WithChildren(ctx context.Context, tournamentID int64) ([]*category_dto.WithChildrenResponse, error) {
-	rows, err := repository.queries.Query(ctx, `
+	rows, err := repository.db.Query(ctx, `
 		SELECT category.id, category.tournament_id, category.parent_id, category.name,
 		       category.is_active, category.created_at, category.updated_at,
 		       category_children_json(category.tournament_id, category.id) AS children
@@ -177,7 +148,7 @@ func (repository *categoryRepository) WithChildren(ctx context.Context, tourname
 func (repository *categoryRepository) Show(ctx context.Context, id int64) (*category_dto.Response, error) {
 	var res category_dto.Response
 
-	err := repository.queries.QueryRow(ctx, `
+	err := repository.db.QueryRow(ctx, `
 		SELECT id, tournament_id, parent_id, name, is_active, created_at, updated_at
 		FROM categories WHERE id = $1
 	`, id).Scan(
@@ -200,7 +171,7 @@ func (repository *categoryRepository) Show(ctx context.Context, id int64) (*cate
 func (repository *categoryRepository) Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error) {
 	var res category_dto.Response
 
-	err := repository.queries.QueryRow(ctx, `
+	err := repository.db.QueryRow(ctx, `
 		UPDATE categories
 		SET tournament_id = $1, parent_id = $2, name = $3, is_active = $4, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $5
@@ -223,7 +194,7 @@ func (repository *categoryRepository) Update(ctx context.Context, id int64, req 
 }
 
 func (repository *categoryRepository) Delete(ctx context.Context, id int64) error {
-	result, err := repository.queries.Exec(ctx, "DELETE FROM categories WHERE id = $1", id)
+	result, err := repository.db.Exec(ctx, "DELETE FROM categories WHERE id = $1", id)
 
 	if err != nil {
 		return err

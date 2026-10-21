@@ -56,22 +56,11 @@ func (service *categoryService) Create(ctx context.Context, req *category_dto.Cr
 		return nil, err
 	}
 
-	var res *category_dto.Response
+	if err := service.validateParent(ctx, 0, req.TournamentID, req.ParentID); err != nil {
+		return nil, err
+	}
 
-	err := service.repository.WithTransaction(ctx, func(repository category_repository.CategoryRepository) error {
-		{
-			if err := service.validateParent(ctx, repository, 0, req.TournamentID, req.ParentID); err != nil {
-				return err
-			}
-		}
-
-		var err error
-
-		res, err = repository.Create(ctx, req)
-
-		return err
-	})
-
+	res, err := service.repository.Create(ctx, req)
 	if err != nil {
 		return nil, serviceError(err)
 	}
@@ -125,36 +114,27 @@ func (service *categoryService) Show(ctx context.Context, id int64) (*category_d
 }
 
 func (service *categoryService) Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error) {
-	{
-		if err := validateBody((*category_dto.Create)(req)); err != nil {
-			return nil, err
-		}
 
-		if err := service.validateTournament(ctx, req.TournamentID); err != nil {
-			return nil, err
+	if err := validateBody((*category_dto.Create)(req)); err != nil {
+		return nil, err
+	}
+
+	if err := service.validateTournament(ctx, req.TournamentID); err != nil {
+		return nil, err
+	}
+
+	_, err := service.repository.Show(ctx, id)
+	{
+		if err != nil {
+			return nil, serviceError(err)
 		}
 	}
 
-	var res *category_dto.Response
+	if err := service.validateParent(ctx, id, req.TournamentID, req.ParentID); err != nil {
+		return nil, serviceError(err)
+	}
 
-	err := service.repository.WithTransaction(ctx, func(repository category_repository.CategoryRepository) error {
-		_, err := repository.Show(ctx, id)
-		{
-			if err != nil {
-				return err
-			}
-		}
-
-		{
-			if err := service.validateParent(ctx, repository, id, req.TournamentID, req.ParentID); err != nil {
-				return err
-			}
-		}
-
-		res, err = repository.Update(ctx, id, req)
-
-		return err
-	})
+	res, err := service.repository.Update(ctx, id, req)
 	{
 		if err != nil {
 			return nil, serviceError(err)
@@ -183,7 +163,7 @@ func (service *categoryService) validateTournament(ctx context.Context, tourname
 	return nil
 }
 
-func (service *categoryService) validateParent(ctx context.Context, repository category_repository.CategoryRepository, id, tournamentID int64, parentID *int64) error {
+func (service *categoryService) validateParent(ctx context.Context, id, tournamentID int64, parentID *int64) error {
 	visited := make(map[int64]bool)
 
 	for parentID != nil {
@@ -193,7 +173,7 @@ func (service *categoryService) validateParent(ctx context.Context, repository c
 
 		visited[*parentID] = true
 
-		parent, err := repository.Show(ctx, *parentID)
+		parent, err := service.repository.Show(ctx, *parentID)
 		{
 			if errors.Is(err, pgx.ErrNoRows) {
 				return ErrParentNotFound
