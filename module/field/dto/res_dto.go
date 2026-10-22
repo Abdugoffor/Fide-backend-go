@@ -34,9 +34,8 @@ type ListResponse struct {
 
 type FormField struct {
 	ID         *int64     `json:"id"`
-	Sort       int        `json:"sort"`
 	Type       string     `json:"type"`
-	Options    []string   `json:"options"`
 	Name       string     `json:"name"`
 	Validation Validation `json:"validation"`
+	Options    []string   `json:"options"`
 }

@@ -203,20 +203,26 @@ o'qish amallari mavjud `RequireAuth` orqali himoyalangan. Page service
 pointerlari, repository bog'liqliklari interfacelar orqali konstruktorlarda ulanadi.
 
 `GET /api/pages-form?tournament_id=1&category_id=2` Page route blokida alohida
-`Form` handleriga to'g'ridan-to'g'ri ulangan. Service dastlabki ikki doimiy
-bosqichni (`contact`, `email_verification`) qo'shadi; repository faol dinamik
-sahifa va maydonlarni SQLda yig'adi. Doimiy bosqichlarda va ularning maydonlarida
-`id: null`; ular CRUD orqali o'zgarmaydi. Dinamik sahifalar `sort >= 3`, maydonlar
-`sort >= 1`. Tartiblar kategoriya/sahifa ichida takrorlanmaydi. Sahifalar
-kategoriyaga bevosita tegishli, ota kategoriyadan meros olinmaydi.
+`Form` handleriga to'g'ridan-to'g'ri ulangan. Querydagi ikkala ID majburiy;
+service turnir/kategoriya bog'liqligi va kategoriya faolligini tekshiradi.
+Repository faqat shu kategoriyaning faol sahifa va maydonlarini SQLda yig'adi.
+Sahifalar va har bir sahifaning maydonlari `sort ASC, id ASC` bo'yicha qaytadi;
+response'da `tournament_id`, `category_id`, `sort` yo'q. `FormPage` maydonlari
+`id`, `page_name`, `fields`; `FormField` maydonlari `id`, `type`, `name`,
+`validation`, `options` ketma-ketligida. `total` qaytgan sahifalar soni. Sahifa bo'lmasa
+`{"total":0,"data":[]}`, faol maydonsiz sahifada `fields: []`.
+Qo'shimcha doimiy bosqichlar qo'shilmaydi. Misollar `docs/page-form.md`da.
+Sahifalar kategoriyaga bevosita tegishli, ota kategoriyadan meros olinmaydi.
+Sahifalar `sort >= 3`, maydonlar `sort >= 1`; tartiblar kategoriya/sahifa ichida
+takrorlanmaydi. CRUD DTOlarida `sort` saqlanadi.
 
 Page/Field `List` pagination ishlatmaydi va `sort` bo'yicha tartiblanadi. Page
 filterlari `tournament_id`, `category_id`, `name`, `is_active`; Field filterlari
 `page_id`, `name`, `type`, `is_active`. Field `options` turi `[]string`,
 `validation` turi `field_dto.Validation`. Tanlovlar va validatsiya chegaralari
 serviceda tekshiriladi. `FormPage.Fields` turi `[]field_dto.FormField`; pgx SQLdan
-kelgan JSONni shu turga o'qiydi. Dinamik sahifasiz kategoriyada ham doimiy ikki
-bosqich qaytadi. Faol bo'lmagan kategoriya formasi `409`.
+kelgan JSONni shu turga o'qiydi. `FormField`da `sort` yo'q; tartib SQLda saqlanadi.
+Faol bo'lmagan kategoriya formasi `409`.
 
 `005_create_pages.sql` sahifalarni va kategoriya bilan turnir o'rtasidagi
 kompozit FKni, `006_create_fields.sql` maydonlarni yaratadi.

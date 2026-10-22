@@ -164,18 +164,18 @@ func (repository *pageRepository) Delete(ctx context.Context, id int64) error {
 
 func (repository *pageRepository) Form(ctx context.Context, tournamentID, categoryID int64) ([]page_dto.FormPage, error) {
 	rows, err := repository.db.Query(ctx, `
-		SELECT page.id, page.tournament_id, page.category_id, page.name, page.sort,
+		SELECT page.id, page.name,
 		       COALESCE((
 		           SELECT jsonb_agg(jsonb_build_object(
-		               'id', field.id, 'sort', field.sort, 'type', field.type,
+		               'id', field.id, 'type', field.type,
 		               'options', field.options, 'name', field.name, 'validation', field.validation
-		           ) ORDER BY field.sort, field.id)
+		           ) ORDER BY field.sort ASC, field.id ASC)
 		           FROM fields AS field
 		           WHERE field.page_id = page.id AND field.is_active = TRUE
 		       ), '[]'::JSONB) AS fields
 		FROM pages AS page
 		WHERE page.tournament_id = $1 AND page.category_id = $2 AND page.is_active = TRUE
-		ORDER BY page.sort, page.id
+		ORDER BY page.sort ASC, page.id ASC
 	`, tournamentID, categoryID)
 
 	if err != nil {
@@ -191,10 +191,7 @@ func (repository *pageRepository) Form(ctx context.Context, tournamentID, catego
 
 		err := rows.Scan(
 			&res.ID,
-			&res.TournamentID,
-			&res.CategoryID,
-			&res.Name,
-			&res.Sort,
+			&res.PageName,
 			&res.Fields,
 		)
 
@@ -202,7 +199,6 @@ func (repository *pageRepository) Form(ctx context.Context, tournamentID, catego
 			return nil, err
 		}
 
-		res.Kind = page_dto.KindCustom
 		result = append(result, res)
 	}
 

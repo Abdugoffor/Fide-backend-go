@@ -7,7 +7,6 @@ import (
 
 	"auth-login/helper"
 	category_service "auth-login/module/category/service"
-	field_dto "auth-login/module/field/dto"
 	page_dto "auth-login/module/page/dto"
 	page_repository "auth-login/module/page/repository"
 	tournament_service "auth-login/module/tournament/service"
@@ -79,29 +78,7 @@ func (service *PageService) Form(ctx context.Context, tournamentID, categoryID i
 		}
 	}
 
-	res := &page_dto.FormResponse{Data: []page_dto.FormPage{
-		{
-			TournamentID: tournamentID, CategoryID: categoryID,
-			Name: "Personal information", Sort: 1, Kind: page_dto.KindContact,
-			Fields: []field_dto.FormField{
-				{Sort: 1, Name: "last_name", Type: field_dto.TypeText, Options: []string{}, Validation: field_dto.Validation{Required: true}},
-				{Sort: 2, Name: "first_name", Type: field_dto.TypeText, Options: []string{}, Validation: field_dto.Validation{Required: true}},
-				{Sort: 3, Name: "email", Type: field_dto.TypeEmail, Options: []string{}, Validation: field_dto.Validation{Required: true}},
-				{Sort: 4, Name: "phone", Type: field_dto.TypeTel, Options: []string{}, Validation: field_dto.Validation{Required: true}},
-			},
-		},
-		{
-			TournamentID: tournamentID, CategoryID: categoryID,
-			Name: "Email verification", Sort: 2, Kind: page_dto.KindEmailVerification,
-			Fields: []field_dto.FormField{
-				{Sort: 1, Name: "code", Type: field_dto.TypeText, Options: []string{}, Validation: field_dto.Validation{Required: true}},
-			},
-		},
-	}}
-
-	res.Data = append(res.Data, pages...)
-
-	return res, nil
+	return &page_dto.FormResponse{Total: len(pages), Data: pages}, nil
 }
 
 func (service *PageService) Show(ctx context.Context, id int64) (*page_dto.Response, error) {
