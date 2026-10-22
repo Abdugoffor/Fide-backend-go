@@ -55,6 +55,14 @@ module/
     handler/page_handler.go
     service/page_service.go
     repository/page_repository.go
+  application/
+    cmd.go
+    dto/req_dto.go
+    dto/res_dto.go
+    handler/application_handler.go
+    service/application_service.go
+    repository/application_repository.go
+    repository/verification_repository.go
   field/
     cmd.go
     dto/req_dto.go
@@ -125,7 +133,7 @@ Kichik harf bilan boshlangan funksiyalar faqat o'z package'ida ochiq. Ularni bos
 ## Nomlash va konstruktorlar
 
 - Package/import aliaslar: `auth_dto`, `auth_handler`, `auth_service`, `auth_repository`, `tournament_dto` kabi `<module>_<layer>` uslubi.
-- Service structlari eksport qilinadi: `TournamentService`, `AuthService`, `CategoryService`, `PageService`, `FieldService`. Service interfacelari ishlatilmaydi. Repository interfacelari eksport qilinadi: `TournamentRepository`; ularning implementatsiyalari va handlerlar yopiq: `tournamentRepository`, `tournamentHandler`.
+- Service structlari eksport qilinadi: `TournamentService`, `AuthService`, `CategoryService`, `PageService`, `FieldService`, `ApplicationService`. Service interfacelari ishlatilmaydi. Repository interfacelari eksport qilinadi: `TournamentRepository`; ularning implementatsiyalari va handlerlar yopiq: `tournamentRepository`, `tournamentHandler`.
 - Receiver nomlari: `handler`, `service`, `repository`.
 - Konstruktorlar: `NewTournamentHandler(router, group, db)`, `NewTournamentService(db) *TournamentService`, `NewTournamentRepository(db) TournamentRepository`.
 - Handler o'z konkret service pointerini, service repository interface'ini, repository `*pgxpool.Pool`ni saqlaydi. Boshqa service kerak bo'lsa, u ham konkret pointer orqali ulanadi.
@@ -233,6 +241,33 @@ Sahifalari bor kategoriyani o'chirish/boshqa turnirga ko'chirish
 va sahifalari bor turnirni o'chirish `409`. Email yuborish, kodni tasdiqlash va
 ariza javoblarini saqlash bu modullarga kirmaydi. To'liq API misollari
 `docs/pages-and-fields.md`da.
+
+## Ariza va email tasdiqlash
+
+`module/application` ham `handler -> service -> repository` qatlamlarida.
+`POST /api/applications` ariza yaratadi: `tournament_id`, `category_id`, `name`,
+`email`, `birth_date` (`YYYY-MM-DD`). Service `PageService.ValidateCategory`
+metodini qayta ishlatib turnir/kategoriya bog'liqligi va faollikni tekshiradi.
+Bu eksport qilingan metod Page CRUD va Form amallarida ham ishlatiladi.
+`008_create_applications.sql` arizalar jadvali va avtomatik o'chirishsiz FKlarni
+qo'shadi. `email_verified_at` bazada bir martalik tasdiqlash holatini saqlaydi.
+
+`POST /api/applications/verify-email` bodyda `tournament_id`, `email`,
+`application_id`, `code` oladi; kategoriya IDsi arizaning o'zidan olinadi.
+Service kod, email, turnir va fayldagi kategoriya mosligini tekshirgach,
+`PageService.Form` natijasini qaytaradi. Ikkala yangi route ommaviy, JWT talab
+qilmaydi. Mavjud boshqa APIlarning auth qoidalari saqlanadi.
+
+6 xonali kod 10 daqiqa amal qiladi; 5 xato urinishdan keyin `429`.
+Kodlar `.local/application_codes.json` bitta faylda saqlanadi va server logiga
+chiqariladi; email yuborilmaydi. `APPLICATION_CODES_FILE` bilan yo'l o'zgaradi.
+`VerificationRepository` faylni o'qish/yozishni bajaradi, tekshirish biznesi
+serviceda. Fayl almashtirish va mutexlar bitta jarayonda parallel so'rovlarni
+himoya qiladi; `.lock` ishlatilmaydi. Kod qayta ishga tushishda saqlanadi.
+Tasdiqlashda kod o'chiriladi, qayta tasdiqlash `409`. Kod fayli yozilmasa,
+service yangi arizani o'chirishga urinadi; baza va fayl bitta tranzaksiya emas.
+Arizalari bor kategoriya/turnirni o'chirish yoki kategoriya turnirini almashtirish
+`409`; arizalar avtomatik o'chirilmaydi. Misollar `docs/applications.md`da.
 
 ## O'zgartirishni yakunlash
 

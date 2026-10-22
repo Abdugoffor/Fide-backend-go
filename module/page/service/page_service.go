@@ -43,7 +43,7 @@ func (service *PageService) Create(ctx context.Context, req *page_dto.Create) (*
 		return nil, err
 	}
 
-	if err := service.validateCategory(ctx, req.TournamentID, req.CategoryID, false); err != nil {
+	if err := service.ValidateCategory(ctx, req.TournamentID, req.CategoryID, false); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +67,7 @@ func (service *PageService) Form(ctx context.Context, tournamentID, categoryID i
 		return nil, ErrInvalidPage
 	}
 
-	if err := service.validateCategory(ctx, tournamentID, categoryID, true); err != nil {
+	if err := service.ValidateCategory(ctx, tournamentID, categoryID, true); err != nil {
 		return nil, err
 	}
 
@@ -97,7 +97,7 @@ func (service *PageService) Update(ctx context.Context, id int64, req *page_dto.
 		if err != nil {
 			return nil, err
 		}
-		if err := service.validateCategory(ctx, req.TournamentID, req.CategoryID, false); err != nil {
+		if err := service.ValidateCategory(ctx, req.TournamentID, req.CategoryID, false); err != nil {
 			return nil, err
 		}
 	}
@@ -109,7 +109,7 @@ func (service *PageService) Delete(ctx context.Context, id int64) error {
 	return service.repository.Delete(ctx, id)
 }
 
-func (service *PageService) validateCategory(ctx context.Context, tournamentID, categoryID int64, activeOnly bool) error {
+func (service *PageService) ValidateCategory(ctx context.Context, tournamentID, categoryID int64, activeOnly bool) error {
 	_, err := service.tournament.Show(ctx, tournamentID)
 	{
 		if errors.Is(err, pgx.ErrNoRows) {

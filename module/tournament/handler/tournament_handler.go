@@ -242,6 +242,11 @@ func writeServiceError(w http.ResponseWriter, err error) {
 		return
 	}
 
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" && pgErr.ConstraintName == "applications_tournament_fk" {
+		helper.JSON(w, http.StatusConflict, map[string]string{"error": "tournament has applications"})
+		return
+	}
+
 	log.Printf("Tournament service error: %v", err)
 
 	helper.JSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})

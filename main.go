@@ -10,6 +10,7 @@ import (
 
 	"auth-login/config"
 	"auth-login/helper"
+	application_cmd "auth-login/module/application"
 	auth_cmd "auth-login/module/auth"
 	category_cmd "auth-login/module/category"
 	field_cmd "auth-login/module/field"
@@ -72,6 +73,7 @@ func run() error {
 		category_cmd.Cmd(router, "/api", db)
 		page_cmd.Cmd(router, "/api", db)
 		field_cmd.Cmd(router, "/api", db)
+		application_cmd.Cmd(router, "/api", db)
 	}
 
 	server := &http.Server{

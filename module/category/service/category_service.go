@@ -16,14 +16,15 @@ import (
 )
 
 var (
-	ErrInvalidCategory    = errors.New("invalid category data")
-	ErrTournamentNotFound = errors.New("tournament not found")
-	ErrParentNotFound     = errors.New("parent category not found")
-	ErrParentTournament   = errors.New("parent category must belong to the same tournament")
-	ErrParentCycle        = errors.New("parent category must not be itself or a descendant")
-	ErrHierarchyConflict  = errors.New("category has child categories or its parent is no longer available")
-	ErrConcurrentChange   = errors.New("category hierarchy changed concurrently; retry the request")
-	ErrPageConflict       = errors.New("category has pages; remove or move its pages first")
+	ErrInvalidCategory     = errors.New("invalid category data")
+	ErrTournamentNotFound  = errors.New("tournament not found")
+	ErrParentNotFound      = errors.New("parent category not found")
+	ErrParentTournament    = errors.New("parent category must belong to the same tournament")
+	ErrParentCycle         = errors.New("parent category must not be itself or a descendant")
+	ErrHierarchyConflict   = errors.New("category has child categories or its parent is no longer available")
+	ErrConcurrentChange    = errors.New("category hierarchy changed concurrently; retry the request")
+	ErrPageConflict        = errors.New("category has pages; remove or move its pages first")
+	ErrApplicationConflict = errors.New("category has applications; remove or move its applications first")
 )
 
 type CategoryService struct {
@@ -218,6 +219,8 @@ func serviceError(err error) error {
 				return ErrHierarchyConflict
 			case "pages_category_tournament_fk":
 				return ErrPageConflict
+			case "applications_category_tournament_fk":
+				return ErrApplicationConflict
 			}
 		}
 	}

@@ -267,7 +267,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 			return
 		}
 
-		if errors.Is(err, category_service.ErrHierarchyConflict) || errors.Is(err, category_service.ErrConcurrentChange) || errors.Is(err, category_service.ErrPageConflict) {
+		if errors.Is(err, category_service.ErrHierarchyConflict) || errors.Is(err, category_service.ErrConcurrentChange) || errors.Is(err, category_service.ErrPageConflict) || errors.Is(err, category_service.ErrApplicationConflict) {
 			helper.JSON(w, http.StatusConflict, map[string]string{"error": err.Error()})
 			return
 		}
