@@ -126,6 +126,7 @@ func writeServiceError(w http.ResponseWriter, err error) {
 	}
 
 	var pgErr *pgconn.PgError
+
 	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
 		helper.JSON(w, http.StatusConflict, map[string]string{"error": "tournament or category changed; retry the request"})
 		return

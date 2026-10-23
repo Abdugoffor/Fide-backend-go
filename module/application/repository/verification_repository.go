@@ -32,11 +32,14 @@ func NewVerificationRepository(path string) VerificationRepository {
 
 func (repository *verificationRepository) Save(ctx context.Context, verification *application_dto.Verification) error {
 	verificationFileMutex.Lock()
+
 	defer verificationFileMutex.Unlock()
 
 	entries, err := repository.read(ctx)
-	if err != nil {
-		return err
+	{
+		if err != nil {
+			return err
+		}
 	}
 
 	for i := range entries {
@@ -53,11 +56,14 @@ func (repository *verificationRepository) Save(ctx context.Context, verification
 
 func (repository *verificationRepository) Show(ctx context.Context, applicationID int64) (*application_dto.Verification, error) {
 	verificationFileMutex.Lock()
+
 	defer verificationFileMutex.Unlock()
 
 	entries, err := repository.read(ctx)
-	if err != nil {
-		return nil, err
+	{
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, entry := range entries {
@@ -71,11 +77,14 @@ func (repository *verificationRepository) Show(ctx context.Context, applicationI
 
 func (repository *verificationRepository) Delete(ctx context.Context, applicationID int64) error {
 	verificationFileMutex.Lock()
+
 	defer verificationFileMutex.Unlock()
 
 	entries, err := repository.read(ctx)
-	if err != nil {
-		return err
+	{
+		if err != nil {
+			return err
+		}
 	}
 
 	for i := range entries {
@@ -94,16 +103,21 @@ func (repository *verificationRepository) read(ctx context.Context) ([]applicati
 	}
 
 	data, err := os.ReadFile(repository.path)
-	if errors.Is(err, os.ErrNotExist) {
-		return make([]application_dto.Verification, 0), nil
-	}
-	if err != nil {
-		return nil, err
+	{
+		if errors.Is(err, os.ErrNotExist) {
+			return make([]application_dto.Verification, 0), nil
+		}
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var entries []application_dto.Verification
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return nil, err
+	{
+		if err := json.Unmarshal(data, &entries); err != nil {
+			return nil, err
+		}
 	}
 
 	return entries, nil
@@ -115,18 +129,23 @@ func (repository *verificationRepository) write(ctx context.Context, entries []a
 	}
 
 	data, err := json.MarshalIndent(entries, "", "  ")
-	if err != nil {
-		return err
+	{
+		if err != nil {
+			return err
+		}
 	}
 
 	dir := filepath.Dir(repository.path)
+
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return err
 	}
 
 	file, err := os.CreateTemp(dir, "application-codes-*.tmp")
-	if err != nil {
-		return err
+	{
+		if err != nil {
+			return err
+		}
 	}
 
 	defer os.Remove(file.Name())

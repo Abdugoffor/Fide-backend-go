@@ -98,9 +98,10 @@ func (repository *applicationRepository) MarkEmailVerified(ctx context.Context, 
 
 func (repository *applicationRepository) Delete(ctx context.Context, id int64) error {
 	result, err := repository.db.Exec(ctx, "DELETE FROM applications WHERE id = $1", id)
-
-	if err != nil {
-		return err
+	{
+		if err != nil {
+			return err
+		}
 	}
 
 	if result.RowsAffected() == 0 {

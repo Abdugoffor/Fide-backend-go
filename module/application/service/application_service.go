@@ -138,6 +138,7 @@ func (service *ApplicationService) VerifyEmail(ctx context.Context, req *applica
 	}
 
 	verificationMutex.Lock()
+
 	defer verificationMutex.Unlock()
 
 	application, err := service.repository.Show(ctx, req.ApplicationID)
@@ -208,6 +209,7 @@ func (service *ApplicationService) VerifyEmail(ctx context.Context, req *applica
 	}
 
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
 	defer cancel()
 
 	if err := service.verification.Delete(cleanupCtx, application.ID); err != nil {
