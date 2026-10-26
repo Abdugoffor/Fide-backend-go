@@ -1,4 +1,4 @@
-# Ariza yaratish va emailni tasdiqlash
+# Arizalar API
 
 ## 1. Ariza yaratish
 
@@ -240,11 +240,11 @@ avvalgi qatorlar almashtirilsa `200`:
   "application_id": 25,
   "page": "server-texnologiyalari",
   "data": [
-    {"field": 20, "value": "Go"},
-    {"field": 21, "value": "3"},
-    {"field": 22, "value": "Docker"},
-    {"field": 22, "value": "PostgreSQL"},
-    {"field": 23, "value": "true"}
+    {"field": 20, "name": "backend_language", "value": "Go"},
+    {"field": 21, "name": "experience_years", "value": "3"},
+    {"field": 22, "name": "technologies", "value": "Docker"},
+    {"field": 22, "name": "technologies", "value": "PostgreSQL"},
+    {"field": 23, "name": "agree", "value": "true"}
   ]
 }
 ```
@@ -263,9 +263,16 @@ o'qiladi; administratorning parallel konfiguratsiya o'zgarishlari bilan
 validatsiya va saqlash bitta snapshot bo'lishi kafolatlanmaydi.
 
 `010_create_applications_data.sql` migratsiyasi `applications_data` jadvalini
-yaratadi: `id`, `application_id`, `page`, `slug`, `field`, `value`. `page`
+yaratadi; `011_add_applications_data_name.sql` unga `name VARCHAR(200) NOT NULL`
+ustunini qo'shadi. Natijada jadval `id`, `application_id`, `page`, `slug`, `field`,
+`name`, `value` qiymatlarini saqlaydi. `page`
 bazada sahifaning IDsi, `slug` shu sahifaning URL orqali yuborilgan slugi,
-`field` esa field IDsi. Jadvalda `REFERENCES` yoki foreign key yo'q;
+`field` esa field IDsi, `name` saqlash paytidagi field nomi. Nom bodydan alohida
+yuborilmaydi: service uni mavjud formadagi fielddan oladi. Checkboxning har bir
+tanlovi uchun ham shu field IDsi va nomi saqlanadi.
+`011` migratsiyasi mavjud javoblarning nomini `fields` jadvalidan to'ldiradi;
+field allaqachon o'chirilgan bo'lsa, eski javobning nomi bo'sh string qoladi.
+Jadvalda `REFERENCES` yoki foreign key yo'q;
 ariza, sahifa va field mosligi saqlashdan oldin service orqali tekshiriladi.
 Sahifa yoki fieldni keyinchalik o'chirish/ko'chirish bu jadval orqali
 bloklanmaydi va saqlangan javoblar avtomatik o'zgarmaydi.
@@ -277,3 +284,91 @@ arizaning turnir/kategoriya IDlari mos kelmasa `400`; kategoriya faol bo'lmasa
 `010` migratsiya fayli shu jadvalning yangi tuzilishi bilan tahrirlangan.
 Oldingi `010` bazada bajarilgan bo'lsa, mavjud migratsiya mexanizmi uni
 avtomatik qayta bajarmaydi; ushbu fayl o'zgarishi mavjud bazani o'zi yangilamaydi.
+
+## 4. Arizalar ro'yxati
+
+```http
+GET /api/applications?tournament_id=1&category_id=12&email=ali&name=Valiyev&limit=10
+Authorization: Bearer <access_token>
+```
+
+Ro'yxat va bitta arizani olish autentifikatsiya talab qiladi. Mavjud POST
+route'lari ommaviy qoladi.
+
+| Query | Tavsif |
+| --- | --- |
+| `tournament_id` | Turnir IDsi, musbat butun son; yuborilmasa barcha turnirlar. |
+| `category_id` | Kategoriya IDsi, musbat butun son; yuborilmasa barcha kategoriyalar. |
+| `email` | Arizaning emaili bo'yicha katta-kichik harfsiz qisman qidirish. |
+| `name` | Arizachining ismi bo'yicha katta-kichik harfsiz qisman qidirish. |
+| `limit` | `1..100`, standart `10`. |
+| `cursor` | Arizaning musbat `id` qiymati. |
+| `direction` | `next` (standart) yoki `prev`; `prev` uchun `cursor` majburiy. |
+
+Filtrlar birgalikda ishlaydi. Natija turnir ro'yxatidagi kabi ariza IDsi
+kamayish tartibida qaytadi. Keyingi va oldingi sahifalarda filtrlarni saqlang:
+
+```http
+GET /api/applications?tournament_id=1&category_id=12&email=ali&name=Valiyev&limit=10&cursor=25&direction=next
+GET /api/applications?tournament_id=1&category_id=12&email=ali&name=Valiyev&limit=10&cursor=25&direction=prev
+```
+
+Muvaffaqiyatli javob `200`:
+
+```json
+{
+  "data": [
+    {
+      "id": 25,
+      "tournament_id": 1,
+      "tournament_name": "Dasturlash turniri",
+      "category_id": 12,
+      "category_name": "Backend",
+      "name": "Ali Valiyev",
+      "email": "ali@example.com",
+      "birth_date": "2000-05-18",
+      "email_verified_at": "2026-10-22T10:01:00Z",
+      "created_at": "2026-10-22T10:00:00Z",
+      "updated_at": "2026-10-22T10:01:00Z",
+      "data": [
+        {
+          "slug": "server-texnologiyalari",
+          "name": "backend_language",
+          "value": "Go"
+        }
+      ]
+    }
+  ],
+  "next_cursor": null,
+  "prev_cursor": null,
+  "has_next": false,
+  "has_prev": false
+}
+```
+
+`tournament_name` va `category_name` tegishli turnir va kategoriyadan JOIN
+orqali olinadi. GET javoblarida arizaning identifikatori `id` nomi bilan qaytadi.
+Har bir arizaning `data` massivi `applications_data` jadvalidan JOIN orqali
+olinadi va `page ASC, id ASC` tartibida qaytadi. `name` javob saqlangan paytdagi
+field nomidir. Ichki obyektlarda faqat `slug`, `name`, `value` qaytadi.
+Bir nechta javobi bor ariza ham ro'yxatda bir marta qaytadi;
+`limit` arizalar soniga tegishli. Javoblar saqlanmagan bo'lsa `data: []`.
+Ariza topilmagan ro'yxatda tashqi `data: []`, ikkala cursor `null`, ikkala
+`has_*` qiymati `false` bo'ladi.
+
+Noto'g'ri query qiymati `400`, token yo'q yoki yaroqsiz bo'lsa `401`, faol
+bo'lmagan foydalanuvchi uchun `403`, kutilmagan xato uchun `500` qaytadi.
+
+## 5. Bitta arizani olish
+
+```http
+GET /api/applications/25
+Authorization: Bearer <access_token>
+```
+
+Javob `200`: ro'yxatdagi bitta ariza obyekti bilan bir xil, shu jumladan
+`applications_data`dan olingan `data` massivi. Pagination maydonlari bo'lmaydi.
+Noto'g'ri ID uchun `400`, ariza mavjud bo'lmasa `404` qaytadi.
+
+GET route'laridagi `applications_data.name` ustuni uchun mavjud
+`011_add_applications_data_name.sql` migratsiyasi bajarilgan bo'lishi kerak.

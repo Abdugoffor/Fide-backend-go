@@ -126,7 +126,7 @@ func validatePageData(fields []field_dto.FormField, input map[string]json.RawMes
 		}
 
 		for _, value := range values {
-			result = append(result, application_dto.DataValue{Field: *field.ID, Value: value})
+			result = append(result, application_dto.DataValue{Field: *field.ID, Name: field.Name, Value: value})
 		}
 	}
 

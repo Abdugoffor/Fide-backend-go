@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	application_repository "auth-login/module/application/repository"
 	page_dto "auth-login/module/page/dto"
 	page_service "auth-login/module/page/service"
+	tournament_dto "auth-login/module/tournament/dto"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -110,6 +112,74 @@ func (service *ApplicationService) Create(ctx context.Context, req *application_
 		verification.TournamentID, verification.CategoryID, verification.ApplicationID, verification.Code)
 
 	return &application_dto.CreateResponse{Response: *res, CodeExpiresAt: verification.ExpiresAt}, nil
+}
+
+func (service *ApplicationService) List(ctx context.Context, filter *application_dto.Filter) (*application_dto.ListResponse, error) {
+	if filter.Limit < 1 || filter.Limit > 100 {
+		filter.Limit = 20
+	}
+
+	rows, err := service.repository.List(ctx, filter)
+	{
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	hasMore := len(rows) > filter.Limit
+
+	if hasMore {
+		rows = rows[:filter.Limit]
+	}
+
+	if filter.Direction == tournament_dto.DirectionPrev {
+		slices.Reverse(rows)
+	}
+
+	res := &application_dto.ListResponse{Data: rows}
+
+	if len(rows) == 0 {
+		return res, nil
+	}
+
+	firstID := rows[0].ID
+	lastID := rows[len(rows)-1].ID
+
+	if filter.Direction == tournament_dto.DirectionPrev {
+		res.HasPrev = hasMore
+
+		res.HasNext, err = service.repository.HasMore(ctx, filter, lastID, tournament_dto.DirectionNext)
+		{
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		res.HasNext = hasMore
+
+		if filter.Cursor > 0 {
+			res.HasPrev, err = service.repository.HasMore(ctx, filter, firstID, tournament_dto.DirectionPrev)
+			{
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	if res.HasNext {
+		res.NextCursor = &lastID
+	}
+
+	if res.HasPrev {
+		res.PrevCursor = &firstID
+	}
+
+	return res, nil
+}
+
+func (service *ApplicationService) Show(ctx context.Context, id int64) (*application_dto.DetailResponse, error) {
+	return service.repository.Show(ctx, id)
 }
 
 func (service *ApplicationService) VerifyEmail(ctx context.Context, req *application_dto.VerifyEmail) (*page_dto.FormResponse, error) {

@@ -10,6 +10,16 @@ type Create struct {
 	BirthDate    string `json:"birth_date" validate:"required,datetime=2006-01-02"`
 }
 
+type Filter struct {
+	Cursor       int64
+	Limit        int
+	TournamentID int64
+	CategoryID   int64
+	Email        string
+	Name         string
+	Direction    string
+}
+
 type VerifyEmail struct {
 	TournamentID  int64  `json:"tournament_id" validate:"required,gt=0"`
 	Email         string `json:"email" validate:"required,email,max=254"`
