@@ -30,6 +30,7 @@ func NewApplicationHandler(router *httprouter.Router, group string, db *pgxpool.
 	{
 		router.POST(routes, handler.Create)
 		router.POST(routes+"/verify-email", handler.VerifyEmail)
+		router.POST(routes+"/data/:slug", handler.SaveData)
 	}
 }
 
@@ -95,8 +96,52 @@ func (handler *applicationHandler) VerifyEmail(w http.ResponseWriter, r *http.Re
 	helper.JSON(w, http.StatusOK, res)
 }
 
-func writeServiceError(w http.ResponseWriter, err error) {
+func (handler *applicationHandler) SaveData(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	var req application_dto.SaveData
 	{
+		if err := helper.DecodeJSON(w, r, &req); err != nil {
+			helper.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+	}
+
+	req.Slug = strings.TrimSpace(params.ByName("slug"))
+	{
+		if errs := helper.Validate(req); errs != nil {
+			helper.JSON(w, http.StatusBadRequest, map[string]any{"errors": errs})
+			return
+		}
+	}
+
+	res, err := handler.service.SaveData(r.Context(), &req)
+	{
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+	}
+
+	status := http.StatusOK
+	if res.Created {
+		status = http.StatusCreated
+	}
+
+	helper.JSON(w, status, res)
+}
+
+func writeServiceError(w http.ResponseWriter, err error) {
+	var validationErr *application_service.DataValidationError
+	if errors.As(err, &validationErr) {
+		helper.JSON(w, http.StatusBadRequest, map[string]any{"errors": validationErr.Fields})
+		return
+	}
+
+	{
+		if errors.Is(err, application_service.ErrPageNotFound) {
+			helper.JSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
+			return
+		}
+
 		if errors.Is(err, pgx.ErrNoRows) {
 			helper.JSON(w, http.StatusNotFound, map[string]string{"error": "application not found"})
 			return

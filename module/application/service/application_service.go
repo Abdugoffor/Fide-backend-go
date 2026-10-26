@@ -62,17 +62,6 @@ func (service *ApplicationService) Create(ctx context.Context, req *application_
 		return nil, ErrInvalidApplication
 	}
 
-	req.Name = strings.TrimSpace(req.Name)
-
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-
-	req.BirthDate = strings.TrimSpace(req.BirthDate)
-	{
-		if helper.Validate(req) != nil {
-			return nil, ErrInvalidApplication
-		}
-	}
-
 	birthDate, err := time.Parse(time.DateOnly, req.BirthDate)
 	{
 		if err != nil || birthDate.Year() < 1 || birthDate.After(time.Now()) {
@@ -126,15 +115,6 @@ func (service *ApplicationService) Create(ctx context.Context, req *application_
 func (service *ApplicationService) VerifyEmail(ctx context.Context, req *application_dto.VerifyEmail) (*page_dto.FormResponse, error) {
 	if req == nil {
 		return nil, ErrInvalidVerification
-	}
-
-	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
-
-	req.Code = strings.TrimSpace(req.Code)
-	{
-		if helper.Validate(req) != nil {
-			return nil, ErrInvalidVerification
-		}
 	}
 
 	verificationMutex.Lock()

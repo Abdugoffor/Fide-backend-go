@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
-	"strings"
 
-	"auth-login/helper"
 	category_dto "auth-login/module/category/dto"
 	category_repository "auth-login/module/category/repository"
 	tournament_dto "auth-login/module/tournament/dto"
@@ -43,8 +41,8 @@ func NewCategoryService(db *pgxpool.Pool) *CategoryService {
 
 func (service *CategoryService) Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error) {
 
-	if err := validateBody(req); err != nil {
-		return nil, err
+	if req == nil {
+		return nil, ErrInvalidCategory
 	}
 
 	if err := service.validateTournament(ctx, req.TournamentID); err != nil {
@@ -152,8 +150,8 @@ func (service *CategoryService) Show(ctx context.Context, id int64) (*category_d
 
 func (service *CategoryService) Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error) {
 
-	if err := validateBody((*category_dto.Create)(req)); err != nil {
-		return nil, err
+	if req == nil {
+		return nil, ErrInvalidCategory
 	}
 
 	if err := service.validateTournament(ctx, req.TournamentID); err != nil {
@@ -226,20 +224,6 @@ func (service *CategoryService) validateParent(ctx context.Context, id, tourname
 		}
 
 		parentID = parent.ParentID
-	}
-
-	return nil
-}
-
-func validateBody(req *category_dto.Create) error {
-	if req == nil {
-		return ErrInvalidCategory
-	}
-
-	req.Name = strings.TrimSpace(req.Name)
-
-	if helper.Validate(req) != nil {
-		return ErrInvalidCategory
 	}
 
 	return nil

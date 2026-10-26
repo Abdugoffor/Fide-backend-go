@@ -3,9 +3,7 @@ package field_service
 import (
 	"context"
 	"errors"
-	"strings"
 
-	"auth-login/helper"
 	field_dto "auth-login/module/field/dto"
 	field_repository "auth-login/module/field/repository"
 	page_service "auth-login/module/page/service"
@@ -104,28 +102,21 @@ func validateBody(req *field_dto.Create) error {
 		return ErrInvalidField
 	}
 
-	req.Name = strings.TrimSpace(req.Name)
-	req.Type = strings.TrimSpace(req.Type)
 	if req.Options == nil {
 		req.Options = []string{}
-	}
-	for i := range req.Options {
-		req.Options[i] = strings.TrimSpace(req.Options[i])
-	}
-	{
-		if helper.Validate(req) != nil {
-			return ErrInvalidField
-		}
 	}
 
 	choices := req.Type == field_dto.TypeSelect || req.Type == field_dto.TypeRadio || req.Type == field_dto.TypeCheckbox
 	if !choices && len(req.Options) > 0 {
 		return ErrInvalidOptions
 	}
+
 	if (req.Type == field_dto.TypeSelect || req.Type == field_dto.TypeRadio) && len(req.Options) == 0 {
 		return ErrInvalidOptions
 	}
+
 	seen := make(map[string]bool, len(req.Options))
+
 	for _, option := range req.Options {
 		if seen[option] {
 			return ErrInvalidOptions
@@ -134,16 +125,21 @@ func validateBody(req *field_dto.Create) error {
 	}
 
 	validation := req.Validation
+
 	if validation.MinLength != nil && validation.MaxLength != nil && *validation.MinLength > *validation.MaxLength {
 		return ErrInvalidValidation
 	}
+
 	if validation.Min != nil && validation.Max != nil && *validation.Min > *validation.Max {
 		return ErrInvalidValidation
 	}
+
 	if (validation.Min != nil || validation.Max != nil) && req.Type != field_dto.TypeNumber {
 		return ErrInvalidValidation
 	}
+
 	text := req.Type == field_dto.TypeText || req.Type == field_dto.TypeTextarea || req.Type == field_dto.TypeEmail || req.Type == field_dto.TypeTel
+
 	if (validation.MinLength != nil || validation.MaxLength != nil) && !text {
 		return ErrInvalidValidation
 	}

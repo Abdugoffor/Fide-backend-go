@@ -10,7 +10,7 @@ import (
 )
 
 type PageRepository interface {
-	Create(ctx context.Context, req *page_dto.Create) (*page_dto.Response, error)
+	Create(ctx context.Context, req *page_dto.Create, slug string) (*page_dto.Response, error)
 	List(ctx context.Context, filter *page_dto.Filter) ([]page_dto.Response, error)
 	Form(ctx context.Context, tournamentID, categoryID int64) ([]page_dto.FormPage, error)
 	Show(ctx context.Context, id int64) (*page_dto.Response, error)
@@ -26,18 +26,19 @@ func NewPageRepository(db *pgxpool.Pool) PageRepository {
 	return &pageRepository{db: db}
 }
 
-func (repository *pageRepository) Create(ctx context.Context, req *page_dto.Create) (*page_dto.Response, error) {
+func (repository *pageRepository) Create(ctx context.Context, req *page_dto.Create, slug string) (*page_dto.Response, error) {
 	var res page_dto.Response
 
 	err := repository.db.QueryRow(ctx, `
-		INSERT INTO pages(tournament_id, category_id, name, sort, is_active)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, tournament_id, category_id, name, sort, is_active, created_at, updated_at
-	`, req.TournamentID, req.CategoryID, req.Name, req.Sort, req.IsActive).Scan(
+		INSERT INTO pages(tournament_id, category_id, name, slug, sort, is_active)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, tournament_id, category_id, name, slug, sort, is_active, created_at, updated_at
+	`, req.TournamentID, req.CategoryID, req.Name, slug, req.Sort, req.IsActive).Scan(
 		&res.ID,
 		&res.TournamentID,
 		&res.CategoryID,
 		&res.Name,
+		&res.Slug,
 		&res.Sort,
 		&res.IsActive,
 		&res.CreatedAt,
@@ -53,7 +54,7 @@ func (repository *pageRepository) Create(ctx context.Context, req *page_dto.Crea
 
 func (repository *pageRepository) List(ctx context.Context, filter *page_dto.Filter) ([]page_dto.Response, error) {
 	rows, err := repository.db.Query(ctx, `
-		SELECT id, tournament_id, category_id, name, sort, is_active, created_at, updated_at
+		SELECT id, tournament_id, category_id, name, slug, sort, is_active, created_at, updated_at
 		FROM pages
 		WHERE ($1::BIGINT = 0 OR tournament_id = $1)
 		  AND ($2::BIGINT = 0 OR category_id = $2)
@@ -78,6 +79,7 @@ func (repository *pageRepository) List(ctx context.Context, filter *page_dto.Fil
 			&res.TournamentID,
 			&res.CategoryID,
 			&res.Name,
+			&res.Slug,
 			&res.Sort,
 			&res.IsActive,
 			&res.CreatedAt,
@@ -102,13 +104,14 @@ func (repository *pageRepository) Show(ctx context.Context, id int64) (*page_dto
 	var res page_dto.Response
 
 	err := repository.db.QueryRow(ctx, `
-		SELECT id, tournament_id, category_id, name, sort, is_active, created_at, updated_at
+		SELECT id, tournament_id, category_id, name, slug, sort, is_active, created_at, updated_at
 		FROM pages WHERE id = $1
 	`, id).Scan(
 		&res.ID,
 		&res.TournamentID,
 		&res.CategoryID,
 		&res.Name,
+		&res.Slug,
 		&res.Sort,
 		&res.IsActive,
 		&res.CreatedAt,
@@ -129,12 +132,13 @@ func (repository *pageRepository) Update(ctx context.Context, id int64, req *pag
 		UPDATE pages
 		SET tournament_id = $1, category_id = $2, name = $3, sort = $4, is_active = $5, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $6
-		RETURNING id, tournament_id, category_id, name, sort, is_active, created_at, updated_at
+		RETURNING id, tournament_id, category_id, name, slug, sort, is_active, created_at, updated_at
 	`, req.TournamentID, req.CategoryID, req.Name, req.Sort, req.IsActive, id).Scan(
 		&res.ID,
 		&res.TournamentID,
 		&res.CategoryID,
 		&res.Name,
+		&res.Slug,
 		&res.Sort,
 		&res.IsActive,
 		&res.CreatedAt,
@@ -164,7 +168,7 @@ func (repository *pageRepository) Delete(ctx context.Context, id int64) error {
 
 func (repository *pageRepository) Form(ctx context.Context, tournamentID, categoryID int64) ([]page_dto.FormPage, error) {
 	rows, err := repository.db.Query(ctx, `
-		SELECT page.id, page.name,
+		SELECT page.id, page.name, page.slug,
 		       COALESCE((
 		           SELECT jsonb_agg(jsonb_build_object(
 		               'id', field.id, 'type', field.type,
@@ -192,6 +196,7 @@ func (repository *pageRepository) Form(ctx context.Context, tournamentID, catego
 		err := rows.Scan(
 			&res.ID,
 			&res.PageName,
+			&res.Slug,
 			&res.Fields,
 		)
 

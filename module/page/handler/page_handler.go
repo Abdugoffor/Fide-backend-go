@@ -256,6 +256,11 @@ func writeServiceError(w http.ResponseWriter, err error) {
 
 	if errors.As(err, &pgErr) {
 		if pgErr.Code == "23505" {
+			if pgErr.ConstraintName == "pages_slug_unique" {
+				helper.JSON(w, http.StatusConflict, map[string]string{"error": "page slug already exists"})
+				return
+			}
+
 			helper.JSON(w, http.StatusConflict, map[string]string{"error": "page sort already exists in this category"})
 			return
 		}

@@ -27,3 +27,15 @@ type Verification struct {
 	ExpiresAt     time.Time `json:"expires_at"`
 	Attempts      int       `json:"attempts"`
 }
+
+type DataValue struct {
+	Field int64  `json:"field"`
+	Value string `json:"value"`
+}
+
+type DataResponse struct {
+	ApplicationID int64       `json:"application_id"`
+	Page          string      `json:"page"`
+	Data          []DataValue `json:"data"`
+	Created       bool        `json:"-"`
+}

@@ -14,6 +14,7 @@ ichida esa uning faol maydonlarini qaytaradi. Sahifalar ham, maydonlar ham SQLda
 va `sort` ko'rsatilmaydi. `total` qaytgan sahifalar sonini bildiradi.
 Sahifa nomi `page_name`da qaytadi. Har bir field maydonlari `id`, `type`, `name`,
 `validation`, `options` ketma-ketligida yoziladi.
+Har bir sahifada server yaratgan va update orqali o'zgarmaydigan `slug` ham qaytadi.
 
 ```json
 {
@@ -22,6 +23,7 @@ Sahifa nomi `page_name`da qaytadi. Har bir field maydonlari `id`, `type`, `name`
     {
       "id": 10,
       "page_name": "Server texnologiyalari",
+      "slug": "server-texnologiyalari",
       "fields": [
         {
           "id": 20,
@@ -49,3 +51,7 @@ bosqichlar qo'shilmaydi. CRUD APIlaridagi `sort` maydonlari saqlanadi.
 
 ID noto'g'ri yoki yuborilmagan bo'lsa — `400`; turnir/kategoriya topilmasa — `404`;
 kategoriya boshqa turnirga tegishli bo'lsa — `400`; faol bo'lmagan kategoriya — `409`.
+
+Sahifa javoblarini `slug` va fieldlarning `name` qiymatlari bilan
+[`POST /api/applications/data/:slug`](applications.md#3-sahifa-javoblarini-yaratish-yoki-yangilash)
+orqali saqlash yoki yangilash mumkin.

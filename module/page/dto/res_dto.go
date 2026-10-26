@@ -11,6 +11,7 @@ type Response struct {
 	TournamentID int64     `json:"tournament_id"`
 	CategoryID   int64     `json:"category_id"`
 	Name         string    `json:"name"`
+	Slug         string    `json:"slug"`
 	Sort         int       `json:"sort"`
 	IsActive     bool      `json:"is_active"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -24,6 +25,7 @@ type ListResponse struct {
 type FormPage struct {
 	ID       *int64                `json:"id"`
 	PageName string                `json:"page_name"`
+	Slug     string                `json:"slug"`
 	Fields   []field_dto.FormField `json:"fields"`
 }
 
