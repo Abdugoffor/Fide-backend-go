@@ -3,11 +3,13 @@ package category_service
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 
 	"auth-login/helper"
 	category_dto "auth-login/module/category/dto"
 	category_repository "auth-login/module/category/repository"
+	tournament_dto "auth-login/module/tournament/dto"
 	tournament_service "auth-login/module/tournament/service"
 
 	"github.com/jackc/pgx/v5"
@@ -75,14 +77,54 @@ func (service *CategoryService) List(ctx context.Context, filter *category_dto.F
 		}
 	}
 
-	res := &category_dto.ListResponse{Data: rows, HasNext: len(rows) > filter.Limit}
+	hasMore := len(rows) > filter.Limit
+
+	if hasMore {
+		rows = rows[:filter.Limit]
+	}
+
+	if filter.Direction == tournament_dto.DirectionPrev {
+		slices.Reverse(rows)
+	}
+
+	res := &category_dto.ListResponse{Data: rows}
+
+	if len(rows) == 0 {
+		return res, nil
+	}
+
+	firstID := rows[0].ID
+	lastID := rows[len(rows)-1].ID
+
+	if filter.Direction == tournament_dto.DirectionPrev {
+		res.HasPrev = hasMore
+
+		res.HasNext, err = service.repository.HasMore(ctx, filter, lastID, tournament_dto.DirectionNext)
+		{
+			if err != nil {
+				return nil, err
+			}
+		}
+
+	} else {
+		res.HasNext = hasMore
+
+		if filter.Cursor > 0 {
+			res.HasPrev, err = service.repository.HasMore(ctx, filter, firstID, tournament_dto.DirectionPrev)
+			{
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 
 	if res.HasNext {
-		res.Data = rows[:filter.Limit]
-
-		lastID := res.Data[len(res.Data)-1].ID
-
 		res.NextCursor = &lastID
+	}
+
+	if res.HasPrev {
+		res.PrevCursor = &firstID
 	}
 
 	return res, nil

@@ -16,4 +16,5 @@ type Filter struct {
 	ParentID     *int64
 	Name         string
 	IsActive     *bool
+	Direction    string
 }

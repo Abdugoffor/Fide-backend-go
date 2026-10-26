@@ -2,8 +2,10 @@ package category_repository
 
 import (
 	"context"
+	"fmt"
 
 	category_dto "auth-login/module/category/dto"
+	tournament_dto "auth-login/module/tournament/dto"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,6 +14,7 @@ import (
 type CategoryRepository interface {
 	Create(ctx context.Context, req *category_dto.Create) (*category_dto.Response, error)
 	List(ctx context.Context, filter *category_dto.Filter) ([]category_dto.Response, error)
+	HasMore(ctx context.Context, filter *category_dto.Filter, cursor int64, direction string) (bool, error)
 	WithChildren(ctx context.Context, tournamentID int64) ([]*category_dto.WithChildrenResponse, error)
 	Show(ctx context.Context, id int64) (*category_dto.Response, error)
 	Update(ctx context.Context, id int64, req *category_dto.Update) (*category_dto.Response, error)
@@ -51,17 +54,27 @@ func (repository *categoryRepository) Create(ctx context.Context, req *category_
 }
 
 func (repository *categoryRepository) List(ctx context.Context, filter *category_dto.Filter) ([]category_dto.Response, error) {
-	rows, err := repository.db.Query(ctx, `
+	condition := "($1::BIGINT = 0 OR id < $1)"
+	order := "DESC"
+
+	if filter.Direction == tournament_dto.DirectionPrev {
+		condition = "id > $1"
+		order = "ASC"
+	}
+
+	query := fmt.Sprintf(`
 		SELECT id, tournament_id, parent_id, name, is_active, created_at, updated_at
 		FROM categories
-		WHERE ($1::BIGINT = 0 OR id < $1)
+		WHERE %s
 		  AND ($2::BIGINT = 0 OR tournament_id = $2)
 		  AND ((COALESCE($3::BIGINT, 0) = 0 AND parent_id IS NULL) OR ($3 > 0 AND parent_id = $3))
-		  AND ($4::TEXT = '' OR name ILIKE '%' || $4 || '%')
+		  AND ($4::TEXT = '' OR name ILIKE '%%' || $4 || '%%')
 		  AND ($5::BOOLEAN IS NULL OR is_active = $5)
-		ORDER BY id DESC
+		ORDER BY id %s
 		LIMIT $6
-	`, filter.Cursor, filter.TournamentID, filter.ParentID, filter.Name, filter.IsActive, filter.Limit+1)
+	`, condition, order)
+
+	rows, err := repository.db.Query(ctx, query, filter.Cursor, filter.TournamentID, filter.ParentID, filter.Name, filter.IsActive, filter.Limit+1)
 
 	if err != nil {
 		return nil, err
@@ -96,6 +109,35 @@ func (repository *categoryRepository) List(ctx context.Context, filter *category
 	}
 
 	return result, nil
+}
+
+func (repository *categoryRepository) HasMore(ctx context.Context, filter *category_dto.Filter, cursor int64, direction string) (bool, error) {
+	operator := "<"
+
+	if direction == tournament_dto.DirectionPrev {
+		operator = ">"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT EXISTS (
+			SELECT 1 FROM categories
+			WHERE id %s $1
+			  AND ($2::BIGINT = 0 OR tournament_id = $2)
+			  AND ((COALESCE($3::BIGINT, 0) = 0 AND parent_id IS NULL) OR ($3 > 0 AND parent_id = $3))
+			  AND ($4::TEXT = '' OR name ILIKE '%%' || $4 || '%%')
+			  AND ($5::BOOLEAN IS NULL OR is_active = $5)
+		)
+	`, operator)
+
+	var exists bool
+
+	err := repository.db.QueryRow(ctx, query, cursor, filter.TournamentID, filter.ParentID, filter.Name, filter.IsActive).Scan(&exists)
+
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
 }
 
 func (repository *categoryRepository) WithChildren(ctx context.Context, tournamentID int64) ([]*category_dto.WithChildrenResponse, error) {

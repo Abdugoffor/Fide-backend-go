@@ -13,6 +13,7 @@ import (
 	auth_service "auth-login/module/auth/service"
 	category_dto "auth-login/module/category/dto"
 	category_service "auth-login/module/category/service"
+	tournament_dto "auth-login/module/tournament/dto"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,8 +67,18 @@ func (handler *categoryHandler) List(w http.ResponseWriter, r *http.Request, _ h
 	query := r.URL.Query()
 
 	filter := category_dto.Filter{
-		Limit: 10,
-		Name:  strings.TrimSpace(query.Get("name")),
+		Limit:     10,
+		Name:      strings.TrimSpace(query.Get("name")),
+		Direction: query.Get("direction"),
+	}
+
+	if filter.Direction == "" {
+		filter.Direction = tournament_dto.DirectionNext
+	}
+
+	if filter.Direction != tournament_dto.DirectionNext && filter.Direction != tournament_dto.DirectionPrev {
+		helper.JSON(w, http.StatusBadRequest, map[string]string{"error": "direction must be next or prev"})
+		return
 	}
 
 	if query.Has("cursor") {
@@ -80,6 +91,11 @@ func (handler *categoryHandler) List(w http.ResponseWriter, r *http.Request, _ h
 		}
 
 		filter.Cursor = cursor
+	}
+
+	if filter.Direction == tournament_dto.DirectionPrev && filter.Cursor == 0 {
+		helper.JSON(w, http.StatusBadRequest, map[string]string{"error": "cursor is required for prev direction"})
+		return
 	}
 
 	if query.Has("limit") {

@@ -18,7 +18,9 @@ type Response struct {
 type ListResponse struct {
 	Data       []Response `json:"data"`
 	NextCursor *int64     `json:"next_cursor"`
+	PrevCursor *int64     `json:"prev_cursor"`
 	HasNext    bool       `json:"has_next"`
+	HasPrev    bool       `json:"has_prev"`
 }
 
 type WithChildrenResponse struct {
