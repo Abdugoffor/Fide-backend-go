@@ -19,6 +19,7 @@ type ApplicationRepository interface {
 	MarkEmailVerified(ctx context.Context, id int64) error
 	Delete(ctx context.Context, id int64) error
 	BeginData(ctx context.Context) (pgx.Tx, error)
+	CountPages(ctx context.Context, applicationID int64, slugs []string) (int, error)
 	SaveData(ctx context.Context, tx pgx.Tx, req *application_dto.SaveData, pageID int64, values []application_dto.DataValue) (bool, error)
 }
 
@@ -248,6 +249,20 @@ func (repository *applicationRepository) Delete(ctx context.Context, id int64) e
 
 func (repository *applicationRepository) BeginData(ctx context.Context) (pgx.Tx, error) {
 	return repository.db.Begin(ctx)
+}
+
+func (repository *applicationRepository) CountPages(ctx context.Context, applicationID int64, slugs []string) (int, error) {
+	var count int
+
+	err := repository.db.QueryRow(ctx, `SELECT COUNT(DISTINCT slug) FROM applications_data 
+	WHERE application_id = $1 AND slug = ANY($2::TEXT[])
+	`, applicationID, slugs).Scan(&count)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (repository *applicationRepository) SaveData(ctx context.Context, tx pgx.Tx, req *application_dto.SaveData, pageID int64, values []application_dto.DataValue) (bool, error) {

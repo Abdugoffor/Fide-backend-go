@@ -19,6 +19,7 @@ import (
 )
 
 var ErrPageNotFound = errors.New("active page not found in the selected tournament and category")
+var ErrPreviousPagesIncomplete = errors.New("avval oldingi sahifalarni to'ldiring")
 
 type DataValidationError struct {
 	Fields map[string]string
@@ -52,10 +53,29 @@ func (service *ApplicationService) SaveData(ctx context.Context, req *applicatio
 	}
 
 	var page *page_dto.FormPage
+
+	page_slugs := make([]string, 0, len(form.Data))
+
 	for i := range form.Data {
 		if form.Data[i].Slug == req.Slug {
 			page = &form.Data[i]
 			break
+		}
+
+		page_slugs = append(page_slugs, form.Data[i].Slug)
+
+	}
+
+	if len(page_slugs) > 0 {
+		count, err := service.repository.CountPages(ctx, req.ApplicationID, page_slugs)
+		{
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if count != len(page_slugs) {
+			return nil, ErrPreviousPagesIncomplete
 		}
 	}
 

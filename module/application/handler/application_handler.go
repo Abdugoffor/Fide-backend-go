@@ -226,7 +226,11 @@ func (handler *applicationHandler) SaveData(w http.ResponseWriter, r *http.Reque
 	res, err := handler.service.SaveData(r.Context(), &req)
 	{
 		if err != nil {
-			writeServiceError(w, err)
+			// writeServiceError(w, err)
+			// http.Error(w, err.Error(), http.StatusInternalServerError)
+			helper.JSON(w, http.StatusInternalServerError, map[string]string{
+				"error": err.Error(),
+			})
 			return
 		}
 	}
