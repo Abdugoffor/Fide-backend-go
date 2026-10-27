@@ -19,6 +19,11 @@ type CreateResponse struct {
 	CodeExpiresAt time.Time `json:"code_expires_at"`
 }
 
+type UpdateResponse struct {
+	Response
+	CodeExpiresAt *time.Time `json:"code_expires_at,omitempty"`
+}
+
 type DetailResponse struct {
 	ID              int64       `json:"id"`
 	TournamentID    int64       `json:"tournament_id"`

@@ -16,6 +16,8 @@ type ApplicationRepository interface {
 	List(ctx context.Context, filter *application_dto.Filter) ([]application_dto.DetailResponse, error)
 	HasMore(ctx context.Context, filter *application_dto.Filter, cursor int64, direction string) (bool, error)
 	Show(ctx context.Context, id int64) (*application_dto.DetailResponse, error)
+	Update(ctx context.Context, tx pgx.Tx, id int64, req *application_dto.Update) (*application_dto.Response, error)
+	DeleteData(ctx context.Context, tx pgx.Tx, applicationID int64) error
 	MarkEmailVerified(ctx context.Context, id int64) error
 	Delete(ctx context.Context, id int64) error
 	BeginData(ctx context.Context) (pgx.Tx, error)
@@ -212,6 +214,41 @@ func (repository *applicationRepository) Show(ctx context.Context, id int64) (*a
 	}
 
 	return &res, nil
+}
+
+func (repository *applicationRepository) Update(ctx context.Context, tx pgx.Tx, id int64, req *application_dto.Update) (*application_dto.Response, error) {
+	var res application_dto.Response
+
+	err := tx.QueryRow(ctx, `
+		UPDATE applications
+		SET category_id = $1, name = $2, email = $3::TEXT, birth_date = $4::TEXT::DATE,
+		    email_verified_at = CASE WHEN email = $3::TEXT THEN email_verified_at ELSE NULL END,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = $5
+		RETURNING id, tournament_id, category_id, name, email, birth_date::TEXT,
+		          email_verified_at, created_at, updated_at
+	`, req.CategoryID, req.Name, req.Email, req.BirthDate, id).Scan(
+		&res.ID,
+		&res.TournamentID,
+		&res.CategoryID,
+		&res.Name,
+		&res.Email,
+		&res.BirthDate,
+		&res.EmailVerifiedAt,
+		&res.CreatedAt,
+		&res.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &res, nil
+}
+
+func (repository *applicationRepository) DeleteData(ctx context.Context, tx pgx.Tx, applicationID int64) error {
+	_, err := tx.Exec(ctx, `DELETE FROM applications_data WHERE application_id = $1`, applicationID)
+	return err
 }
 
 func (repository *applicationRepository) MarkEmailVerified(ctx context.Context, id int64) error {

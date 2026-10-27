@@ -10,6 +10,7 @@ import (
 	"auth-login/helper"
 	application_dto "auth-login/module/application/dto"
 	application_service "auth-login/module/application/service"
+	auth_dto "auth-login/module/auth/dto"
 	auth_handler "auth-login/module/auth/handler"
 	auth_service "auth-login/module/auth/service"
 	page_service "auth-login/module/page/service"
@@ -32,11 +33,14 @@ func NewApplicationHandler(router *httprouter.Router, group string, db *pgxpool.
 
 	auth := auth_service.NewAuthService(db, helper.ENV("JWT_SECRET"))
 
+	roles := []string{auth_dto.RoleSuperadmin, auth_dto.RoleAdmin}
+
 	routes := group + "/applications"
 	{
 		router.POST(routes, handler.Create)
 		router.GET(routes, auth_handler.RequireAuth(auth, handler.List))
 		router.GET(routes+"/:id", auth_handler.RequireAuth(auth, handler.Show))
+		router.PUT(routes+"/:id", auth_handler.RequireAuth(auth, handler.Update, roles...))
 		router.POST(routes+"/verify-email", handler.VerifyEmail)
 		router.POST(routes+"/data/:slug", handler.SaveData)
 	}
@@ -166,6 +170,46 @@ func (handler *applicationHandler) Show(w http.ResponseWriter, r *http.Request, 
 	}
 
 	res, err := handler.service.Show(r.Context(), id)
+	{
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+	}
+
+	helper.JSON(w, http.StatusOK, res)
+}
+
+func (handler *applicationHandler) Update(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
+	id, ok := helper.ParseID(w, params)
+	{
+		if !ok {
+			return
+		}
+	}
+
+	var req application_dto.Update
+	{
+		if err := helper.DecodeJSON(w, r, &req); err != nil {
+			helper.JSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.Email = strings.ToLower(strings.TrimSpace(req.Email))
+	req.BirthDate = strings.TrimSpace(req.BirthDate)
+
+	for i := range req.Pages {
+		req.Pages[i].Slug = strings.TrimSpace(req.Pages[i].Slug)
+	}
+
+	if errs := helper.Validate(req); errs != nil {
+		helper.JSON(w, http.StatusBadRequest, map[string]any{"errors": errs})
+		return
+	}
+
+	res, err := handler.service.Update(r.Context(), id, &req)
 	{
 		if err != nil {
 			writeServiceError(w, err)

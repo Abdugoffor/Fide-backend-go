@@ -372,3 +372,126 @@ Noto'g'ri ID uchun `400`, ariza mavjud bo'lmasa `404` qaytadi.
 
 GET route'laridagi `applications_data.name` ustuni uchun mavjud
 `011_add_applications_data_name.sql` migratsiyasi bajarilgan bo'lishi kerak.
+
+## 6. Arizani barcha sahifalari bilan yangilash
+
+```http
+PUT /api/applications/25
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+```json
+{
+  "category_id": 12,
+  "name": "Ali Valiyev",
+  "email": "ali@example.com",
+  "birth_date": "2000-05-18",
+  "pages": [
+    {
+      "slug": "server-texnologiyalari",
+      "fields": {
+        "backend_language": "Go",
+        "experience_years": 4,
+        "technologies": ["Docker", "PostgreSQL"],
+        "agree": true
+      }
+    },
+    {
+      "slug": "qoshimcha-malumotlar",
+      "fields": {
+        "portfolio": "https://example.com/portfolio"
+      }
+    }
+  ]
+}
+```
+
+Bu API faqat `admin` va `superadmin` uchun. `category_id`, `name`, `email`,
+`birth_date` va `pages` majburiy. Turnir IDsi mavjud arizadan olinadi va
+o'zgartirilmaydi; bodyda `tournament_id` yuborish `400` qaytaradi.
+Ism va email yaratishdagi kabi tozalanadi; tug'ilgan sana kelajakda bo'lmasligi
+kerak. Kategoriya faol va arizaning o'sha turniriga tegishli bo'lishi kerak.
+
+`pages` tanlangan kategoriyaning barcha faol sahifalarini aynan bir martadan
+qamrab oladi. Sluglar [forma API](page-form.md) javobidan olinadi; massiv
+tartibi ixtiyoriy. Misoldagi ikkala sahifa ham tanlangan kategoriyada mavjud
+bo'lishi kerak. Sahifada majburiy field bo'lmasa, `fields: {}` yuborish mumkin;
+faol sahifalar umuman bo'lmasa, `pages: []` yuboriladi. `pages` yoki `fields`
+uchun `null` qabul qilinmaydi.
+
+Har bir sahifaning qiymatlari 3-bo'limdagi mavjud field validatsiyasidan o'tadi.
+Yetishmagan, takrorlangan yoki boshqa kategoriyadagi sahifa uchun `400`
+qaytadi. Field xatolarida sahifa slugi ham ko'rsatiladi:
+
+```json
+{
+  "errors": {
+    "pages.server-texnologiyalari.backend_language": "field is required",
+    "pages.qoshimcha-malumotlar": "page is required"
+  }
+}
+```
+
+Bu to'liq almashtirish amali: barcha eski sahifa javoblari o'chirilib,
+yuborilgan qiymatlar yoziladi. Jumladan, eski kategoriyadagi yoki hozir faol
+bo'lmagan sahifalarning javoblari ham olib tashlanadi. Yuborilmagan ixtiyoriy
+fieldlar va olib tashlangan checkbox tanlovlari saqlanmaydi. Sahifalarni
+alohida ketma-ket yuborish talab qilinmaydi. Boshqa arizalar o'zgarmaydi.
+
+Service bitta tranzaksiyada arizaning asosiy ma'lumotlarini yangilaydi va
+mavjud `SaveData` repository metodi orqali barcha sahifa javoblarini saqlaydi.
+Ariza yozuvi qulflanadi; sahifalardan birini yozishda xato chiqsa, asosiy
+ma'lumotlar va barcha javoblar birgalikda bekor qilinadi. Parallel sahifa
+saqlash eski kategoriya IDsi bilan kelsa, yangilangan kategoriyaga yozolmaydi.
+Forma konfiguratsiyasini parallel o'zgartirishga oid 3-bo'limdagi cheklov
+ushbu APIga ham tegishli.
+
+Email o'zgarsa, `email_verified_at` qiymati `null` qilinadi va yangi 6 xonali,
+10 daqiqalik tasdiqlash kodi yaratiladi. Hali tasdiqlanmagan arizaning
+kategoriyasi o'zgarsa ham, yangi kategoriya uchun kod yangilanadi. Eski kod
+almashtiriladi, xato urinishlar soni nolga qaytadi. Kod yaratishdagi kabi
+server logiga chiqadi; email yuborilmaydi. Kodni mavjud `verify-email` API
+orqali yangi email va o'sha turnir IDsi bilan tasdiqlash mumkin. Email
+o'zgarmasa, mavjud tasdiqlangan holat saqlanadi.
+
+Muvaffaqiyatli javob `200`; asosiy ma'lumotlar qaytadi:
+
+```json
+{
+  "application_id": 25,
+  "tournament_id": 1,
+  "category_id": 12,
+  "name": "Ali Valiyev",
+  "email": "ali@example.com",
+  "birth_date": "2000-05-18",
+  "email_verified_at": "2026-10-22T10:01:00Z",
+  "created_at": "2026-10-22T10:00:00Z",
+  "updated_at": "2026-10-27T10:00:00Z"
+}
+```
+
+Yangi kod yaratilganida javobda qo'shimcha `code_expires_at` qaytadi; kodning
+o'zi qaytmaydi. Barcha saqlangan javoblarni `GET /api/applications/25` orqali
+olish mumkin.
+
+Kod fayliga yozish muvaffaqiyatsiz bo'lsa, baza tranzaksiyasi bekor qilinadi.
+Kod yozilib, baza commitida xato chiqsa, service oldingi kod yozuvini tiklashga
+urinadi. Baza va fayl bitta atomar tranzaksiya emas; jarayon to'xtashi yoki
+tiklash xatosi sababli ular mos kelmay qolishi mumkin. Tiklash xatosi logga
+yoziladi. Update va email tasdiqlash mavjud mutex bilan bitta server jarayoni
+ichida ketma-ket bajariladi.
+
+| Holat | HTTP status |
+| --- | --- |
+| Ariza va barcha javoblar yangilandi | `200` |
+| Noto'g'ri ID, JSON, sana, sahifa yoki field qiymati | `400` |
+| Kategoriya boshqa turnirga tegishli | `400` |
+| Token yo'q yoki yaroqsiz | `401` |
+| Foydalanuvchi faol emas yoki admin/superadmin emas | `403` |
+| Ariza, turnir yoki kategoriya topilmadi | `404` |
+| Kategoriya faol emas yoki FK ziddiyati | `409` |
+| Bazaga/faylga murojaatda kutilmagan xato | `500` |
+
+Yangi migratsiya talab qilinmaydi; mavjud `008`, `010`, `011` jadvallari
+va ustunlari ishlatiladi.

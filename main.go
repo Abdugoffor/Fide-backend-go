@@ -60,10 +60,8 @@ func run() error {
 		}
 	}
 
-	{
-		if err := config.SeedSuperadmin(ctx, db); err != nil {
-			return err
-		}
+	if err := config.SeedSuperadmin(ctx, db); err != nil {
+		return err
 	}
 
 	router := httprouter.New()

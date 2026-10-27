@@ -10,6 +10,19 @@ type Create struct {
 	BirthDate    string `json:"birth_date" validate:"required,datetime=2006-01-02"`
 }
 
+type Update struct {
+	CategoryID int64        `json:"category_id" validate:"required,gt=0"`
+	Name       string       `json:"name" validate:"required,max=200"`
+	Email      string       `json:"email" validate:"required,email,max=254"`
+	BirthDate  string       `json:"birth_date" validate:"required,datetime=2006-01-02"`
+	Pages      []UpdatePage `json:"pages" validate:"required,dive"`
+}
+
+type UpdatePage struct {
+	Slug   string                     `json:"slug" validate:"required,max=200"`
+	Fields map[string]json.RawMessage `json:"fields" validate:"required"`
+}
+
 type Filter struct {
 	Cursor       int64
 	Limit        int
